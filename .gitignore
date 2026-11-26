@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+products.db
+products.db-shm
+products.db-wal
+uploads/*
+!uploads/.gitkeep
+.DS_Store
