@@ -59,7 +59,7 @@ function gf_product_data(array $data): array
     }
 
     $image = trim((string) ($data['image'] ?? ''));
-    if ($image !== '' && !preg_match('#^(https?://|/uploads/[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp|gif)$)#i', $image)) {
+    if ($image !== '' && !preg_match('#^(https?://|/(?:[A-Za-z0-9_-]+/)*uploads/[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp|gif)$)#i', $image)) {
         gf_json(400, ['error' => 'The product image must use an HTTPS/HTTP URL or uploaded image path.']);
     }
 
@@ -95,7 +95,7 @@ function gf_product_data(array $data): array
     ];
 }
 
-function gf_upload_image(): void
+function gf_upload_image(string $basePath): void
 {
     if (!isset($_FILES['image']) || !is_array($_FILES['image'])) {
         gf_json(400, ['error' => 'Choose an image first.']);
@@ -129,7 +129,7 @@ function gf_upload_image(): void
     if (!move_uploaded_file($file['tmp_name'], $uploadDirectory . '/' . $filename)) {
         gf_json(500, ['error' => 'Could not save the uploaded image.']);
     }
-    gf_json(201, ['url' => '/uploads/' . $filename]);
+    gf_json(201, ['url' => $basePath . '/uploads/' . $filename]);
 }
 
 $https = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
@@ -144,6 +144,12 @@ session_set_cookie_params([
 session_start();
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$apiPosition = strpos($path, '/api/');
+$basePath = '';
+if ($apiPosition !== false) {
+    $basePath = substr($path, 0, $apiPosition);
+    $path = substr($path, $apiPosition);
+}
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
 try {
@@ -193,7 +199,7 @@ try {
     }
     if ($path === '/api/admin/upload' && $method === 'POST') {
         gf_require_admin();
-        gf_upload_image();
+        gf_upload_image($basePath);
     }
     if ($path === '/api/admin/products' && $method === 'POST') {
         gf_require_admin();
