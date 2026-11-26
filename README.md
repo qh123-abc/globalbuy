@@ -26,3 +26,5 @@ Choose an admin password when prompted. Open `http://127.0.0.1:8000/` for the st
 ## Data and deployment
 
 The local `products.db` and uploaded image files are intentionally excluded from Git so private catalog data and uploads are not published with source code. Back them up separately. This Python server is for local preview; Netlify static hosting cannot run it or persist its SQLite and local upload files. A hosted deployment needs a persistent database and object storage, plus production authentication and HTTPS.
+
+For a self-hosted Linux VPS setup, see [DEPLOY.md](DEPLOY.md).

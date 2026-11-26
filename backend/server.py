@@ -14,8 +14,9 @@ import sqlite3
 import time
 
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "products.db"
-UPLOAD_DIR = ROOT / "uploads"
+DATA_DIR = Path(os.environ.get("GLOBALFIND_DATA_DIR", str(ROOT))).resolve()
+DB_PATH = DATA_DIR / "products.db"
+UPLOAD_DIR = DATA_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 ADMIN_PASSWORD = os.environ.get("GLOBALFIND_ADMIN_PASSWORD", "")
 SESSIONS = {}
@@ -72,6 +73,15 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
+    def translate_path(self, path):
+        request_path = urlparse(path).path
+        if request_path.startswith("/uploads/"):
+            name = request_path[len("/uploads/"):]
+            target = (UPLOAD_DIR / name).resolve()
+            if name and Path(name).name == name and target.parent == UPLOAD_DIR.resolve():
+                return str(target)
+        return super().translate_path(path)
+
     def log_message(self, fmt, *args):
         print("%s - %s" % (self.address_string(), fmt % args))
 
@@ -111,10 +121,14 @@ class Handler(SimpleHTTPRequestHandler):
             return safe_json(self, 200, [dict(row) for row in rows])
         if path == "/api/session":
             return safe_json(self, 200, {"authenticated": self.authenticated()})
+        if path == "/healthz":
+            return safe_json(self, 200, {"ok": True})
         aliases = {
             "/": "/frontend/index.html",
+            "/index.html": "/frontend/index.html",
             "/admin": "/admin/admin.html",
             "/admin/": "/admin/admin.html",
+            "/admin.html": "/admin/admin.html",
             "/styles.css": "/frontend/styles.css",
             "/app.js": "/frontend/app.js",
             "/admin.css": "/admin/admin.css",
@@ -122,7 +136,13 @@ class Handler(SimpleHTTPRequestHandler):
         }
         if path in aliases:
             self.path = aliases[path]
-        return super().do_GET()
+            return super().do_GET()
+        if path.startswith("/uploads/"):
+            name = path[len("/uploads/"):]
+            target = (UPLOAD_DIR / name).resolve()
+            if name and Path(name).name == name and target.parent == UPLOAD_DIR.resolve() and target.is_file():
+                return super().do_GET()
+        return safe_json(self, 404, {"error": "Not found"})
 
     def do_POST(self):
         path = urlparse(self.path).path
@@ -201,7 +221,8 @@ class Handler(SimpleHTTPRequestHandler):
     def end_headers(self):
         # Attach session cookie only to successful login responses.
         if self.path == "/api/login" and getattr(self, "_login_token", None):
-            self.send_header("Set-Cookie", "gf_admin=%s; Path=/; HttpOnly; SameSite=Strict; Max-Age=28800" % self._login_token)
+            secure = "; Secure" if os.environ.get("GLOBALFIND_COOKIE_SECURE", "0") == "1" else ""
+            self.send_header("Set-Cookie", "gf_admin=%s; Path=/; HttpOnly; SameSite=Strict; Max-Age=28800%s" % (self._login_token, secure))
         super().end_headers()
 
     def do_OPTIONS(self):
@@ -210,6 +231,7 @@ class Handler(SimpleHTTPRequestHandler):
 initialize()
 if not ADMIN_PASSWORD:
     print("Set GLOBALFIND_ADMIN_PASSWORD to enable admin login.")
-server = ThreadingHTTPServer(("127.0.0.1", int(os.environ.get("PORT", "8000"))), Handler)
+host = os.environ.get("HOST", "127.0.0.1")
+server = ThreadingHTTPServer((host, int(os.environ.get("PORT", "8000"))), Handler)
 print("GlobalFind running at http://127.0.0.1:%s" % server.server_port)
 server.serve_forever()
