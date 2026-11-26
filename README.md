@@ -1,4 +1,4 @@
-# GlobalFind
+# globalbuy · GlobalFind
 
 GlobalFind is a small product-discovery site with a storefront, password-protected admin panel, image uploads, and a SQLite catalog.
 
