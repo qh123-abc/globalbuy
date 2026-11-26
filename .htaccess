@@ -3,6 +3,8 @@ RewriteEngine On
 
 RewriteRule ^api(?:/.*)?$ backend/api.php [QSA,L]
 RewriteRule ^admin/?$ admin/admin.html [L]
+RewriteRule ^index\.html$ frontend/index.html [L]
+RewriteRule ^admin\.html$ admin/admin.html [L]
 RewriteRule ^styles\.css$ frontend/styles.css [L]
 RewriteRule ^app\.js$ frontend/app.js [L]
 RewriteRule ^admin\.css$ admin/admin.css [L]
