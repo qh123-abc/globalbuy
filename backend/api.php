@@ -33,6 +33,20 @@ function gf_require_admin(): void
     }
 }
 
+function gf_products_with_links(array $rows): array
+{
+    foreach ($rows as &$row) {
+        $links = json_decode((string) ($row['agent_links'] ?? '{}'), true);
+        $row['agent_links'] = is_array($links) ? $links : [];
+        $row['id'] = (int) $row['id'];
+        if (array_key_exists('active', $row)) {
+            $row['active'] = (int) $row['active'];
+        }
+    }
+    unset($row);
+    return $rows;
+}
+
 function gf_product_data(array $data): array
 {
     $name = trim((string) ($data['name'] ?? ''));
@@ -45,11 +59,28 @@ function gf_product_data(array $data): array
     }
 
     $image = trim((string) ($data['image'] ?? ''));
-    $supplierUrl = trim((string) ($data['supplier_url'] ?? ''));
-    if (($image !== '' && !preg_match('#^(https?://|/uploads/[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp|gif)$)#i', $image))
-        || ($supplierUrl !== '' && !filter_var($supplierUrl, FILTER_VALIDATE_URL))
-        || ($supplierUrl !== '' && !in_array(strtolower((string) parse_url($supplierUrl, PHP_URL_SCHEME)), ['http', 'https'], true))) {
-        gf_json(400, ['error' => 'Image and product links must use HTTPS/HTTP URLs or uploaded image paths.']);
+    if ($image !== '' && !preg_match('#^(https?://|/uploads/[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp|gif)$)#i', $image)) {
+        gf_json(400, ['error' => 'The product image must use an HTTPS/HTTP URL or uploaded image path.']);
+    }
+
+    $agentKeys = ['kakobuy', 'litbuy', 'usfans', 'lovegobuy', 'hipobuy', 'oopbuy', 'acbuy', 'sugargoo', 'hoobuy', 'fishgoo', 'joyagoo', 'bbdbuy', 'cnfans', 'mulebuy', 'allchinabuy'];
+    $inputLinks = $data['agent_links'] ?? [];
+    if (!is_array($inputLinks)) {
+        gf_json(400, ['error' => 'Agent links must be a list of URLs.']);
+    }
+    $links = [];
+    foreach ($agentKeys as $key) {
+        $url = trim((string) ($inputLinks[$key] ?? ''));
+        if ($url === '' && $key === 'kakobuy') {
+            $url = trim((string) ($data['supplier_url'] ?? ''));
+        }
+        if ($url === '') {
+            continue;
+        }
+        if (!filter_var($url, FILTER_VALIDATE_URL) || !in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true)) {
+            gf_json(400, ['error' => 'Each agent link must be a valid HTTPS/HTTP URL.']);
+        }
+        $links[$key] = substr($url, 0, 4000);
     }
 
     return [
@@ -58,7 +89,8 @@ function gf_product_data(array $data): array
         'price' => (float) $price,
         'badge' => substr(trim((string) ($data['badge'] ?? '')), 0, 320),
         'image' => substr($image, 0, 4000),
-        'supplier_url' => substr($supplierUrl, 0, 4000),
+        'supplier_url' => $links['kakobuy'] ?? '',
+        'agent_links' => json_encode($links, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
         'active' => !empty($data['active']) ? 1 : 0,
     ];
 }
@@ -122,8 +154,8 @@ try {
         gf_json(200, ['authenticated' => !empty($_SESSION['gf_admin'])]);
     }
     if ($path === '/api/products' && $method === 'GET') {
-        $rows = gf_db()->query('SELECT id, name, category, price, badge, image, supplier_url FROM products WHERE active = 1 ORDER BY id DESC')->fetchAll();
-        gf_json(200, $rows);
+        $rows = gf_db()->query('SELECT id, name, category, price, badge, image, supplier_url, agent_links FROM products WHERE active = 1 ORDER BY id DESC')->fetchAll();
+        gf_json(200, gf_products_with_links($rows));
     }
     if ($path === '/api/login' && $method === 'POST') {
         $password = gf_admin_password();
@@ -156,8 +188,8 @@ try {
     }
     if ($path === '/api/admin/products' && $method === 'GET') {
         gf_require_admin();
-        $rows = gf_db()->query('SELECT id, name, category, price, badge, image, supplier_url, active FROM products ORDER BY id DESC')->fetchAll();
-        gf_json(200, $rows);
+        $rows = gf_db()->query('SELECT id, name, category, price, badge, image, supplier_url, agent_links, active FROM products ORDER BY id DESC')->fetchAll();
+        gf_json(200, gf_products_with_links($rows));
     }
     if ($path === '/api/admin/upload' && $method === 'POST') {
         gf_require_admin();
@@ -166,7 +198,7 @@ try {
     if ($path === '/api/admin/products' && $method === 'POST') {
         gf_require_admin();
         $product = gf_product_data(gf_request_json());
-        $insert = gf_db()->prepare('INSERT INTO products(name, category, price, badge, image, supplier_url, active) VALUES(:name, :category, :price, :badge, :image, :supplier_url, :active)');
+        $insert = gf_db()->prepare('INSERT INTO products(name, category, price, badge, image, supplier_url, agent_links, active) VALUES(:name, :category, :price, :badge, :image, :supplier_url, :agent_links, :active)');
         $insert->execute($product);
         gf_json(201, ['id' => (int) gf_db()->lastInsertId()]);
     }
@@ -174,7 +206,7 @@ try {
         gf_require_admin();
         $product = gf_product_data(gf_request_json());
         $product['id'] = (int) $matches[1];
-        $update = gf_db()->prepare('UPDATE products SET name=:name, category=:category, price=:price, badge=:badge, image=:image, supplier_url=:supplier_url, active=:active WHERE id=:id');
+        $update = gf_db()->prepare('UPDATE products SET name=:name, category=:category, price=:price, badge=:badge, image=:image, supplier_url=:supplier_url, agent_links=:agent_links, active=:active WHERE id=:id');
         $update->execute($product);
         gf_json($update->rowCount() ? 200 : 404, ['ok' => $update->rowCount() > 0]);
     }

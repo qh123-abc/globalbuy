@@ -21,6 +21,8 @@ uploads/    Uploaded product images
 
 The first API request creates `backend/data/products.sqlite` and seeds the demo catalog if the products table is empty. The database and uploaded images are ignored by Git. Back them up separately.
 
+Each product can store separate links for Kakobuy, Litbuy, USFans, LoveGoBuy, HipoBuy, Oopbuy, Acbuy, Sugargoo, Hoobuy, Fishgoo, Joyagoo, BBDBuy, CNFans, Mulebuy, and AllChinaBuy. The storefront's **GET LINKS** button opens the agent chooser. Add the product-specific URLs in the product editor; unset links remain visible but disabled.
+
 ## Configure the admin password
 
 On the server, copy `backend/config.local.php.example` to `backend/config.local.php` and replace the example password with a unique long password. This local config file is excluded from Git. If your host supports environment variables, set `GLOBALFIND_ADMIN_PASSWORD` instead.

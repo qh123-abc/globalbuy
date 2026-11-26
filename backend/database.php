@@ -36,9 +36,23 @@ function gf_db(): PDO
         badge TEXT NOT NULL DEFAULT \'\',
         image TEXT NOT NULL DEFAULT \'\',
         supplier_url TEXT NOT NULL DEFAULT \'\',
+        agent_links TEXT NOT NULL DEFAULT \'{}\',
         active INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )');
+
+    $columns = array_column($db->query('PRAGMA table_info(products)')->fetchAll(), 'name');
+    if (!in_array('agent_links', $columns, true)) {
+        $db->exec("ALTER TABLE products ADD COLUMN agent_links TEXT NOT NULL DEFAULT '{}'");
+    }
+    $legacyLinks = $db->query("SELECT id, supplier_url FROM products WHERE supplier_url <> '' AND agent_links = '{}'")->fetchAll();
+    if ($legacyLinks) {
+        $migrateLink = $db->prepare('UPDATE products SET agent_links = ? WHERE id = ?');
+        foreach ($legacyLinks as $legacy) {
+            $encoded = json_encode(['kakobuy' => $legacy['supplier_url']], JSON_UNESCAPED_SLASHES);
+            $migrateLink->execute([$encoded, $legacy['id']]);
+        }
+    }
 
     $count = (int) $db->query('SELECT COUNT(*) FROM products')->fetchColumn();
     if ($count === 0) {
