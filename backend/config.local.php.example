@@ -1,0 +1,5 @@
+<?php
+// Copy to config.local.php on the server and set a unique admin password.
+return [
+    'admin_password' => 'replace-with-a-long-unique-password',
+];

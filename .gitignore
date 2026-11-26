@@ -1,8 +1,10 @@
-__pycache__/
-*.py[cod]
 products.db
 products.db-shm
 products.db-wal
+backend/config.local.php
+backend/data/*.sqlite
+backend/data/*.sqlite-shm
+backend/data/*.sqlite-wal
 uploads/*
 !uploads/.gitkeep
 .DS_Store

@@ -1,19 +1,26 @@
-# Self-hosting notes
+# PHP shared-hosting deployment
 
-The project can run on a Linux VPS with Python 3.9+ and no Python package installation. Run it as a dedicated unprivileged service account. Keep `HOST=127.0.0.1` when exposing it through a local reverse proxy or Cloudflare Tunnel.
+This version does not require Python or a continuously running application process. Upload the repository contents to the hosting account's web root.
 
-Set these environment variables through the service manager, not in Git:
+## Requirements
 
-```text
-GLOBALFIND_ADMIN_PASSWORD=<a unique strong password>
-GLOBALFIND_DATA_DIR=/var/lib/globalfind
-GLOBALFIND_COOKIE_SECURE=1
-HOST=127.0.0.1
-PORT=8000
-```
+- PHP 7.4 or newer
+- PDO_SQLITE, Fileinfo, and PHP sessions
+- Apache `mod_rewrite`/`.htaccess`, or equivalent route mappings:
+  - `/` -> `frontend/index.html`
+  - `/admin` -> `admin/admin.html`
+  - `/api/*` -> `backend/api.php`
+  - `/styles.css`, `/app.js`, `/admin.css`, `/admin.js` -> their files under `frontend/` and `admin/`
+- Writable `backend/data/` and `uploads/` directories
+- PHP `upload_max_filesize` and `post_max_size` set to at least 6 MB
 
-Create `/var/lib/globalfind` and give write access to the service account. This directory holds `products.db` and uploaded product images. Back it up independently of the code repository.
+## Setup
 
-For a temporary public HTTPS URL without a domain, Cloudflare Quick Tunnel can forward to `http://127.0.0.1:8000`. Its generated URL is temporary and stops working when the tunnel process stops. Treat the URL as public; keep the admin password private. For a permanent deployment, use a named tunnel or a domain with HTTPS and a regular service manager such as systemd.
+1. Copy `backend/config.local.php.example` to `backend/config.local.php` on the server and set a unique admin password. The local config is excluded from Git.
+2. Upload the project files. Keep the root and `backend/data/.htaccess` files in place so routes work and database files are not served publicly.
+3. Give the PHP/web-server user write access to `backend/data/` and `uploads/`.
+4. Open `/` for the storefront and `/admin` for product management. The first API request creates the SQLite database and seeds demo products if the table is empty.
 
-The local development launcher `./run.sh` prompts for a password and starts on port 8000. For a VPS, configure the environment above and run `python3 backend/server.py` under the server's process manager instead.
+If your host does not provide PDO_SQLITE, Fileinfo, or Apache-compatible URL rewrites, check its PHP extensions/rewrite settings. A MySQL adapter or host-specific rewrite rules can be supplied once the hosting provider is known.
+
+The database file is `backend/data/products.sqlite`; uploaded product images are stored in `uploads/`. Back up both directories outside Git.

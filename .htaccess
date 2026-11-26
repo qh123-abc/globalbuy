@@ -1,0 +1,14 @@
+Options -Indexes
+RewriteEngine On
+
+RewriteRule ^api(?:/.*)?$ backend/api.php [QSA,L]
+RewriteRule ^admin/?$ admin/admin.html [L]
+RewriteRule ^styles\.css$ frontend/styles.css [L]
+RewriteRule ^app\.js$ frontend/app.js [L]
+RewriteRule ^admin\.css$ admin/admin.css [L]
+RewriteRule ^admin\.js$ admin/admin.js [L]
+RewriteRule ^$ frontend/index.html [L]
+
+<FilesMatch "^(\.env|config\.local\.php|.*\.(sqlite|sqlite3|db|py))$">
+    Require all denied
+</FilesMatch>

@@ -1,3 +1,5 @@
-# Backend
+# PHP backend
 
-`server.py` uses Python's standard library, SQLite, and a small JSON API. It creates the local `products.db` on startup, seeds demo entries into an empty database, and writes uploaded images to `../uploads/`. Set the admin password with `run.sh`; product images and database files are local development data and are excluded from version control.
+`api.php` implements the existing JSON API routes for catalog reads, admin login/session, product CRUD, and image uploads. `database.php` initializes SQLite and the demo catalog through PDO_SQLITE. `config.php` reads the admin password and data path from environment variables or the untracked `config.local.php` file.
+
+Required PHP extensions: PDO_SQLITE, Fileinfo, and sessions. The PHP process must be able to write to `data/` and the root `uploads/` directory. `data/.htaccess` blocks direct HTTP access to the SQLite database on Apache.

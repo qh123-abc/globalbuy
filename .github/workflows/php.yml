@@ -1,0 +1,19 @@
+name: PHP backend checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  php-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, fileinfo
+      - name: Run PHP syntax and API smoke checks
+        run: sh tests/php-smoke.sh
