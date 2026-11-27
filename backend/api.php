@@ -47,6 +47,40 @@ function gf_products_with_links(array $rows): array
     return $rows;
 }
 
+function gf_site_settings(): array
+{
+    $settings = ['whatsapp_url' => '', 'telegram_url' => '', 'banner_image' => ''];
+    $rows = gf_db()->query('SELECT setting_key, setting_value FROM site_settings')->fetchAll();
+    foreach ($rows as $row) {
+        if (array_key_exists($row['setting_key'], $settings)) {
+            $settings[$row['setting_key']] = (string) $row['setting_value'];
+        }
+    }
+    return $settings;
+}
+
+function gf_save_site_settings(array $data): array
+{
+    $settings = [
+        'whatsapp_url' => trim((string) ($data['whatsapp_url'] ?? '')),
+        'telegram_url' => trim((string) ($data['telegram_url'] ?? '')),
+        'banner_image' => trim((string) ($data['banner_image'] ?? '')),
+    ];
+    foreach (['whatsapp_url', 'telegram_url'] as $key) {
+        if ($settings[$key] !== '' && (!filter_var($settings[$key], FILTER_VALIDATE_URL) || !in_array(strtolower((string) parse_url($settings[$key], PHP_URL_SCHEME)), ['http', 'https'], true))) {
+            gf_json(400, ['error' => 'WhatsApp and Telegram links must be valid HTTPS/HTTP URLs.']);
+        }
+    }
+    if ($settings['banner_image'] !== '' && !preg_match('#^(https?://|/(?:[A-Za-z0-9_-]+/)*uploads/[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp|gif)$)#i', $settings['banner_image'])) {
+        gf_json(400, ['error' => 'Choose a valid banner image URL or upload an image.']);
+    }
+    $save = gf_db()->prepare('INSERT INTO site_settings(setting_key, setting_value) VALUES(?, ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value');
+    foreach ($settings as $key => $value) {
+        $save->execute([$key, substr($value, 0, 4000)]);
+    }
+    return $settings;
+}
+
 function gf_product_data(array $data): array
 {
     $name = trim((string) ($data['name'] ?? ''));
@@ -107,11 +141,14 @@ function gf_upload_image(string $basePath): void
     if ((int) $file['size'] > 5 * 1024 * 1024) {
         gf_json(413, ['error' => 'Image must be 5 MB or smaller.']);
     }
-    if (!function_exists('finfo_open')) {
-        gf_json(500, ['error' => 'The PHP Fileinfo extension is required for image uploads.']);
+    if (function_exists('finfo_open')) {
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+    } elseif (function_exists('getimagesize')) {
+        $imageInfo = @getimagesize($file['tmp_name']);
+        $mime = is_array($imageInfo) ? (string) ($imageInfo['mime'] ?? '') : '';
+    } else {
+        gf_json(500, ['error' => 'The server cannot verify image files. Enable PHP Fileinfo or getimagesize.']);
     }
-
-    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
     $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
     if (!isset($extensions[$mime])) {
         gf_json(400, ['error' => 'Use JPG, PNG, WEBP, or GIF.']);
@@ -163,6 +200,9 @@ try {
         $rows = gf_db()->query('SELECT id, name, category, price, badge, image, supplier_url, agent_links FROM products WHERE active = 1 ORDER BY id DESC')->fetchAll();
         gf_json(200, gf_products_with_links($rows));
     }
+    if ($path === '/api/settings' && $method === 'GET') {
+        gf_json(200, gf_site_settings());
+    }
     if ($path === '/api/login' && $method === 'POST') {
         $password = gf_admin_password();
         if ($password === '') {
@@ -196,6 +236,14 @@ try {
         gf_require_admin();
         $rows = gf_db()->query('SELECT id, name, category, price, badge, image, supplier_url, agent_links, active FROM products ORDER BY id DESC')->fetchAll();
         gf_json(200, gf_products_with_links($rows));
+    }
+    if ($path === '/api/admin/settings' && $method === 'GET') {
+        gf_require_admin();
+        gf_json(200, gf_site_settings());
+    }
+    if ($path === '/api/admin/settings' && $method === 'PUT') {
+        gf_require_admin();
+        gf_json(200, gf_save_site_settings(gf_request_json()));
     }
     if ($path === '/api/admin/upload' && $method === 'POST') {
         gf_require_admin();

@@ -40,6 +40,10 @@ function gf_db(): PDO
         active INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )');
+    $db->exec('CREATE TABLE IF NOT EXISTS site_settings (
+        setting_key TEXT PRIMARY KEY,
+        setting_value TEXT NOT NULL DEFAULT \'\'
+    )');
 
     $columns = array_column($db->query('PRAGMA table_info(products)')->fetchAll(), 'name');
     if (!in_array('agent_links', $columns, true)) {
