@@ -180,10 +180,16 @@ session_set_cookie_params([
 ]);
 session_start();
 
-$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$scriptPath = parse_url($_SERVER['SCRIPT_NAME'] ?? '', PHP_URL_PATH) ?: '';
+$scriptDirectory = dirname($scriptPath);
+if (basename($scriptDirectory) === 'backend') {
+    $scriptDirectory = dirname($scriptDirectory);
+}
+$basePath = ($scriptDirectory === '/' || $scriptDirectory === '.') ? '' : rtrim($scriptDirectory, '/');
+$requestedPath = isset($_GET['path']) ? (string) $_GET['path'] : (string) ($_SERVER['REQUEST_URI'] ?? '/');
+$path = parse_url($requestedPath, PHP_URL_PATH) ?: '/';
 $apiPosition = strpos($path, '/api/');
-$basePath = '';
-if ($apiPosition !== false) {
+if (!isset($_GET['path']) && $apiPosition !== false) {
     $basePath = substr($path, 0, $apiPosition);
     $path = substr($path, $apiPosition);
 }
